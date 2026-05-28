@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WeightLog — Daily Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --card: #1c1c1c;
+    --border: #2a2a2a;
+    --accent: #c8f55a;
+    --accent-dim: #9abf3a;
+    --danger: #f56a6a;
+    --muted: #555;
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --gain: #f56a6a;
+    --loss: #c8f55a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* HEADER */
+  header {
+    padding: 2rem 2.5rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  header h1 span { color: var(--accent); font-style: italic; }
+  .unit-toggle {
+    display: flex;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-left: auto;
+  }
+  .unit-toggle button {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .unit-toggle button.active {
+    background: var(--accent);
+    color: #000;
+    font-weight: 500;
+  }
+
+  /* MAIN LAYOUT */
+  main {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 80px);
+  }
+
+  /* LEFT PANEL */
+  .left-panel {
+    border-right: 1px solid var(--border);
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .section-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  /* SETUP CARD */
+  .setup-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  .setup-card.done {
+    border-color: var(--accent);
+    border-opacity: 0.3;
+  }
+
+  .input-group {
+    margin-bottom: 0.85rem;
+  }
+  .input-group label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    margin-bottom: 0.35rem;
+  }
+  .input-group input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.75rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .input-group input:focus { border-color: var(--accent); }
+  .input-group input::placeholder { color: var(--muted); }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    padding: 0.65rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary:hover { background: var(--accent-dim); }
+  .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* LOG ENTRY */
+  .log-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  .log-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+  }
+  .log-row .input-group { flex: 1; margin-bottom: 0; }
+  .btn-log {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-log:hover { background: var(--accent-dim); }
+
+  /* LOG HISTORY */
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .log-list::-webkit-scrollbar { width: 3px; }
+  .log-list::-webkit-scrollbar-track { background: transparent; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.8rem;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .log-item .date { color: var(--text-dim); font-size: 0.72rem; }
+  .log-item .weight-val { font-size: 0.95rem; color: var(--text); }
+  .log-item .delta {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+  }
+  .delta.up { background: rgba(245,106,106,0.12); color: var(--gain); }
+  .delta.down { background: rgba(200,245,90,0.12); color: var(--loss); }
+  .delta.same { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+  .log-item .btn-delete {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0.1rem 0.3rem;
+    transition: color 0.1s;
+  }
+  .log-item .btn-delete:hover { color: var(--danger); }
+
+  /* RIGHT PANEL */
+  .right-panel {
+    padding: 2rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* STATS ROW */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .stat-card .s-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .stat-card .s-val {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.8rem;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-card .s-sub {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 0.3rem;
+  }
+  .stat-card.accent-card { border-color: var(--accent); }
+  .stat-card.accent-card .s-val { color: var(--accent); }
+  .stat-card.danger-card .s-val { color: var(--gain); }
+  .stat-card.loss-card .s-val { color: var(--loss); }
+
+  /* CHART */
+  .chart-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    flex: 1;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .chart-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.15rem;
+    color: var(--text);
+  }
+  .chart-area {
+    position: relative;
+    height: 220px;
+  }
+  canvas { width: 100% !important; height: 100% !important; }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-dim);
+  }
+  .empty-state .big {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.3rem;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .empty-state p { font-size: 0.78rem; }
+
+  /* RATE DETAIL */
+  .rate-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .rate-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .rate-card .s-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .rate-card .r-val {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    color: var(--text);
+  }
+  .rate-card .r-sub { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.25rem; }
+  .trend-positive .r-val { color: var(--loss); }
+  .trend-negative .r-val { color: var(--gain); }
+
+  /* TOAST */
+  #toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--accent);
+    color: #000;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 0.65rem 1.2rem;
+    border-radius: 6px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .left-panel { border-right: none; border-bottom: 1px solid var(--border); }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .rate-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Weight<span>Log</span></h1>
+  <div class="unit-toggle">
+    <button id="btn-kg" class="active" onclick="setUnit('kg')">KG</button>
+    <button id="btn-lbs" onclick="setUnit('lbs')">LBS</button>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+
+    <!-- SETUP -->
+    <div>
+      <div class="section-label">Initial Setup</div>
+      <div class="setup-card" id="setup-card">
+        <div class="input-group">
+          <label>START DATE</label>
+          <input type="date" id="start-date">
+        </div>
+        <div class="input-group">
+          <label>INITIAL WEIGHT (<span class="unit-label">KG</span>)</label>
+          <input type="number" id="initial-weight" placeholder="e.g. 75.0" step="0.1" min="1">
+        </div>
+        <div class="input-group">
+          <label>GOAL WEIGHT (<span class="unit-label">KG</span>) — optional</label>
+          <input type="number" id="goal-weight" placeholder="e.g. 68.0" step="0.1" min="1">
+        </div>
+        <button class="btn-primary" onclick="saveSetup()">Save Setup</button>
+      </div>
+    </div>
+
+    <!-- LOG ENTRY -->
+    <div>
+      <div class="section-label">Log Today's Weight</div>
+      <div class="log-card">
+        <div class="input-group">
+          <label>DATE</label>
+          <input type="date" id="log-date">
+        </div>
+        <div class="log-row">
+          <div class="input-group">
+            <label>WEIGHT (<span class="unit-label">KG</span>)</label>
+            <input type="number" id="log-weight" placeholder="e.g. 74.5" step="0.1" min="1">
+          </div>
+          <button class="btn-log" onclick="addEntry()">+ Log</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div style="flex:1">
+      <div class="section-label">History</div>
+      <div class="log-list" id="log-list">
+        <div class="empty-state">
+          <div class="big">No entries yet</div>
+          <p>Set up your initial weight<br>then start logging daily.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="right-panel">
+    <div class="empty-state" id="empty-right" style="margin:auto;">
+      <div class="big">Set up to begin</div>
+      <p>Enter your start date and initial weight<br>to see your progress dashboard.</p>
+    </div>
+    <div id="dashboard" style="display:none; flex-direction:column; gap:2rem; flex:1;">
+      <!-- STATS -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="s-label">Start Weight</div>
+          <div class="s-val" id="s-start">—</div>
+          <div class="s-sub" id="s-start-date">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">Current Weight</div>
+          <div class="s-val" id="s-current">—</div>
+          <div class="s-sub" id="s-current-date">—</div>
+        </div>
+        <div class="stat-card" id="s-change-card">
+          <div class="s-label">Total Change</div>
+          <div class="s-val" id="s-change">—</div>
+          <div class="s-sub" id="s-change-pct">—</div>
+        </div>
+        <div class="stat-card" id="s-goal-card">
+          <div class="s-label">Goal Progress</div>
+          <div class="s-val" id="s-goal">—</div>
+          <div class="s-sub" id="s-goal-sub">no goal set</div>
+        </div>
+      </div>
+
+      <!-- RATE ROW -->
+      <div class="rate-row">
+        <div class="rate-card" id="r-weekly">
+          <div class="s-label">Weekly Rate of Change</div>
+          <div class="r-val" id="r-weekly-val">—</div>
+          <div class="r-sub" id="r-weekly-sub">avg per 7 days</div>
+        </div>
+        <div class="rate-card" id="r-daily">
+          <div class="s-label">Daily Rate of Change</div>
+          <div class="r-val" id="r-daily-val">—</div>
+          <div class="r-sub" id="r-daily-sub">avg per day</div>
+        </div>
+        <div class="rate-card" id="r-monthly">
+          <div class="s-label">Monthly Rate of Change</div>
+          <div class="r-val" id="r-monthly-val">—</div>
+          <div class="r-sub" id="r-monthly-sub">avg per 30 days</div>
+        </div>
+        <div class="rate-card" id="r-projected">
+          <div class="s-label">Projected (30 days)</div>
+          <div class="r-val" id="r-proj-val">—</div>
+          <div class="r-sub" id="r-proj-sub">at current rate</div>
+        </div>
+      </div>
+
+      <!-- CHART -->
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <div class="chart-title">Weight Over Time</div>
+          <div style="font-size:0.72rem; color:var(--text-dim);" id="chart-range-label">—</div>
+        </div>
+        <div class="chart-area">
+          <canvas id="weight-chart"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<div id="toast">Saved!</div>
+
+<script>
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let state = {
+  unit: 'kg',
+  startDate: null,
+  initialWeight: null,
+  goalWeight: null,
+  entries: [] // [{date: 'YYYY-MM-DD', weight: number}]
+};
+
+let chart = null;
+
+// ─── INIT ───────────────────────────────────────────────────────────────────
+function init() {
+  const saved = localStorage.getItem('weightlog_v2');
+  if (saved) {
+    state = JSON.parse(saved);
+  }
+
+  // Default dates to today
+  document.getElementById('log-date').value = today();
+  if (!state.startDate) {
+    document.getElementById('start-date').value = today();
+  }
+
+  // Restore setup fields
+  if (state.startDate) document.getElementById('start-date').value = state.startDate;
+  if (state.initialWeight) document.getElementById('initial-weight').value = toDisplay(state.initialWeight);
+  if (state.goalWeight) document.getElementById('goal-weight').value = toDisplay(state.goalWeight);
+
+  setUnit(state.unit, false);
+  render();
+}
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// ─── UNIT ───────────────────────────────────────────────────────────────────
+function setUnit(u, save = true) {
+  state.unit = u;
+  document.getElementById('btn-kg').classList.toggle('active', u === 'kg');
+  document.getElementById('btn-lbs').classList.toggle('active', u === 'lbs');
+  document.querySelectorAll('.unit-label').forEach(el => el.textContent = u.toUpperCase());
+  if (state.initialWeight) document.getElementById('initial-weight').value = toDisplay(state.initialWeight);
+  if (state.goalWeight) document.getElementById('goal-weight').value = toDisplay(state.goalWeight);
+  if (save) { saveState(); render(); }
+}
+
+function toKg(val) { return state.unit === 'lbs' ? val * 0.453592 : val; }
+function toDisplay(kg) { return state.unit === 'lbs' ? +(kg * 2.20462).toFixed(1) : +kg.toFixed(1); }
+function unitStr() { return state.unit === 'kg' ? 'kg' : 'lbs'; }
+
+// ─── SETUP ──────────────────────────────────────────────────────────────────
+function saveSetup() {
+  const d = document.getElementById('start-date').value;
+  const w = parseFloat(document.getElementById('initial-weight').value);
+  const g = parseFloat(document.getElementById('goal-weight').value);
+  if (!d || isNaN(w) || w <= 0) { showToast('Please fill start date & weight', true); return; }
+  state.startDate = d;
+  state.initialWeight = toKg(w);
+  state.goalWeight = isNaN(g) || g <= 0 ? null : toKg(g);
+
+  // If no entry for start date, add initial weight as first entry
+  const existing = state.entries.find(e => e.date === d);
+  if (!existing) {
+    state.entries.push({ date: d, weight: state.initialWeight });
+    state.entries.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  saveState();
+  render();
+  showToast('Setup saved!');
+}
+
+// ─── LOG ENTRY ───────────────────────────────────────────────────────────────
+function addEntry() {
+  const d = document.getElementById('log-date').value;
+  const w = parseFloat(document.getElementById('log-weight').value);
+  if (!d || isNaN(w) || w <= 0) { showToast('Enter a valid date & weight', true); return; }
+  const kg = toKg(w);
+
+  const idx = state.entries.findIndex(e => e.date === d);
+  if (idx >= 0) {
+    state.entries[idx].weight = kg;
+  } else {
+    state.entries.push({ date: d, weight: kg });
+  }
+  state.entries.sort((a, b) => a.date.localeCompare(b.date));
+
+  document.getElementById('log-weight').value = '';
+  saveState();
+  render();
+  showToast('Weight logged!');
+}
+
+function deleteEntry(idx) {
+  state.entries.splice(idx, 1);
+  saveState();
+  render();
+  showToast('Entry deleted');
+}
+
+// ─── SAVE ────────────────────────────────────────────────────────────────────
+function saveState() {
+  localStorage.setItem('weightlog_v2', JSON.stringify(state));
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  renderList();
+  if (state.startDate && state.initialWeight) {
+    document.getElementById('empty-right').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'flex';
+    renderStats();
+    renderChart();
+  }
+}
+
+function fmt(kg) { return toDisplay(kg) + ' ' + unitStr(); }
+function fmtDate(d) {
+  const [y, m, day] = d.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[parseInt(m)-1] + ' ' + parseInt(day) + ', ' + y;
+}
+
+function renderList() {
+  const list = document.getElementById('log-list');
+  if (state.entries.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="big">No entries yet</div><p>Set up your initial weight<br>then start logging daily.</p></div>';
+    return;
+  }
+  const reversed = [...state.entries].reverse();
+  list.innerHTML = reversed.map((e, revIdx) => {
+    const origIdx = state.entries.length - 1 - revIdx;
+    const prev = state.entries[origIdx - 1];
+    let deltaHtml = '';
+    if (prev) {
+      const diff = e.weight - prev.weight;
+      const pct = ((diff / prev.weight) * 100).toFixed(2);
+      const cls = diff > 0.01 ? 'up' : diff < -0.01 ? 'down' : 'same';
+      const sign = diff > 0.01 ? '+' : '';
+      deltaHtml = `<span class="delta ${cls}">${sign}${toDisplay(diff)} ${unitStr()} (${sign}${pct}%)</span>`;
+    } else {
+      deltaHtml = '<span class="delta same">start</span>';
+    }
+    return `
+      <div class="log-item">
+        <span class="date">${fmtDate(e.date)}</span>
+        <span class="weight-val">${fmt(e.weight)}</span>
+        ${deltaHtml}
+        <button class="btn-delete" onclick="deleteEntry(${origIdx})">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function renderStats() {
+  const entries = state.entries;
+  if (!state.initialWeight) return;
+
+  const initW = state.initialWeight;
+  const initDate = state.startDate;
+
+  // Current = last entry
+  const latest = entries.length > 0 ? entries[entries.length - 1] : null;
+  const currentW = latest ? latest.weight : initW;
+  const currentDate = latest ? latest.date : initDate;
+
+  const totalChange = currentW - initW;
+  const totalPct = ((totalChange / initW) * 100).toFixed(2);
+
+  document.getElementById('s-start').textContent = fmt(initW);
+  document.getElementById('s-start-date').textContent = fmtDate(initDate);
+  document.getElementById('s-current').textContent = fmt(currentW);
+  document.getElementById('s-current-date').textContent = fmtDate(currentDate);
+
+  const chg = document.getElementById('s-change');
+  const chgCard = document.getElementById('s-change-card');
+  const sign = totalChange > 0.01 ? '+' : '';
+  chg.textContent = sign + fmt(totalChange);
+  document.getElementById('s-change-pct').textContent = sign + totalPct + '%';
+  chgCard.classList.remove('accent-card','danger-card','loss-card');
+  if (totalChange > 0.01) chgCard.classList.add('danger-card');
+  else if (totalChange < -0.01) chgCard.classList.add('loss-card');
+
+  // Goal progress
+  const goalEl = document.getElementById('s-goal');
+  const goalSub = document.getElementById('s-goal-sub');
+  const goalCard = document.getElementById('s-goal-card');
+  if (state.goalWeight) {
+    const rem = state.goalWeight - currentW;
+    const pctToGoal = (((initW - currentW) / (initW - state.goalWeight)) * 100);
+    const pctClamped = Math.min(100, Math.max(0, pctToGoal)).toFixed(0);
+    goalEl.textContent = pctClamped + '%';
+    goalSub.textContent = fmt(Math.abs(rem)) + ' to goal';
+    goalCard.classList.remove('accent-card','danger-card','loss-card');
+    if (parseFloat(pctClamped) >= 100) goalCard.classList.add('accent-card');
+  } else {
+    goalEl.textContent = '—';
+    goalSub.textContent = 'no goal set';
+  }
+
+  // Rates of change
+  const ms = (d) => new Date(d).getTime();
+  const daysBetween = (d1, d2) => Math.abs((ms(d2) - ms(d1))) / 86400000;
+  const days = daysBetween(initDate, currentDate);
+
+  if (entries.length >= 2 && days > 0) {
+    const dailyChange = totalChange / days;
+    const weeklyChange = dailyChange * 7;
+    const monthlyChange = dailyChange * 30;
+    const projected30 = currentW + monthlyChange;
+
+    const fmtRate = (kg) => {
+      const pct = ((kg / initW) * 100).toFixed(2);
+      const sign = kg > 0.001 ? '+' : '';
+      return `${sign}${toDisplay(kg)} ${unitStr()} (${sign}${pct}%)`;
+    };
+
+    const setRate = (id, kg, subId, subText, cardId) => {
+      const el = document.getElementById(id);
+      const card = document.getElementById(cardId);
+      el.textContent = fmtRate(kg);
+      document.getElementById(subId).textContent = subText;
+      card.classList.remove('trend-positive','trend-negative');
+      if (kg < -0.001) card.classList.add('trend-positive');
+      else if (kg > 0.001) card.classList.add('trend-negative');
+    };
+
+    setRate('r-daily-val', dailyChange, 'r-daily-sub', 'avg per day', 'r-daily');
+    setRate('r-weekly-val', weeklyChange, 'r-weekly-sub', 'avg per 7 days', 'r-weekly');
+    setRate('r-monthly-val', monthlyChange, 'r-monthly-sub', 'avg per 30 days', 'r-monthly');
+
+    const projEl = document.getElementById('r-proj-val');
+    const projCard = document.getElementById('r-projected');
+    projEl.textContent = fmt(projected30);
+    document.getElementById('r-proj-sub').textContent = 'at current daily rate';
+    projCard.classList.remove('trend-positive','trend-negative');
+    if (projected30 < currentW) projCard.classList.add('trend-positive');
+    else if (projected30 > currentW) projCard.classList.add('trend-negative');
+
+    document.getElementById('chart-range-label').textContent = `${Math.round(days)} days tracked`;
+  } else {
+    ['r-daily-val','r-weekly-val','r-monthly-val','r-proj-val'].forEach(id => {
+      document.getElementById(id).textContent = 'Need 2+ entries';
+    });
+    document.getElementById('chart-range-label').textContent = 'Log more entries to see trends';
+  }
+}
+
+function renderChart() {
+  const canvas = document.getElementById('weight-chart');
+  const ctx = canvas.getContext('2d');
+
+  // Prep data including initial
+  const allEntries = state.entries.length > 0 ? state.entries : [{ date: state.startDate, weight: state.initialWeight }];
+  const labels = allEntries.map(e => fmtDate(e.date));
+  const data = allEntries.map(e => toDisplay(e.weight));
+  const goalLine = state.goalWeight ? allEntries.map(() => toDisplay(state.goalWeight)) : null;
+
+  const W = canvas.parentElement.clientWidth;
+  const H = 220;
+  canvas.width = W * window.devicePixelRatio;
+  canvas.height = H * window.devicePixelRatio;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (data.length < 1) return;
+
+  const PAD = { top: 20, right: 20, bottom: 40, left: 50 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  const allVals = goalLine ? [...data, ...goalLine] : data;
+  const minV = Math.min(...allVals) - 1;
+  const maxV = Math.max(...allVals) + 1;
+  const range = maxV - minV || 1;
+
+  const xOf = (i) => PAD.left + (i / Math.max(data.length - 1, 1)) * cW;
+  const yOf = (v) => PAD.top + ((maxV - v) / range) * cH;
+
+  // Grid lines
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 1;
+  const gridSteps = 4;
+  for (let i = 0; i <= gridSteps; i++) {
+    const v = minV + (range / gridSteps) * i;
+    const y = yOf(v);
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, y);
+    ctx.lineTo(W - PAD.right, y);
+    ctx.stroke();
+    ctx.fillStyle = '#555';
+    ctx.font = `300 10px 'DM Mono', monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(1), PAD.left - 6, y + 3.5);
+  }
+
+  // X labels (show up to 6)
+  const step = Math.max(1, Math.floor(labels.length / 5));
+  ctx.fillStyle = '#555';
+  ctx.font = `300 9px 'DM Mono', monospace`;
+  ctx.textAlign = 'center';
+  labels.forEach((l, i) => {
+    if (i % step === 0 || i === labels.length - 1) {
+      ctx.fillText(l.replace(', ', '\n'), xOf(i), H - PAD.bottom + 14);
+    }
+  });
+
+  // Goal line
+  if (goalLine && data.length > 1) {
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, yOf(goalLine[0]));
+    ctx.lineTo(W - PAD.right, yOf(goalLine[0]));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#555';
+    ctx.font = `300 9px 'DM Mono', monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText('goal: ' + goalLine[0], W - PAD.right - 60, yOf(goalLine[0]) - 5);
+  }
+
+  // Area fill
+  if (data.length > 1) {
+    const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + cH);
+    grad.addColorStop(0, 'rgba(200,245,90,0.12)');
+    grad.addColorStop(1, 'rgba(200,245,90,0)');
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(data[0]));
+    data.forEach((v, i) => { if (i > 0) ctx.lineTo(xOf(i), yOf(v)); });
+    ctx.lineTo(xOf(data.length - 1), yOf(minV));
+    ctx.lineTo(xOf(0), yOf(minV));
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // Line
+  ctx.strokeStyle = '#c8f55a';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  data.forEach((v, i) => { i === 0 ? ctx.moveTo(xOf(i), yOf(v)) : ctx.lineTo(xOf(i), yOf(v)); });
+  ctx.stroke();
+
+  // Points
+  data.forEach((v, i) => {
+    ctx.beginPath();
+    ctx.arc(xOf(i), yOf(v), 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#c8f55a';
+    ctx.fill();
+    ctx.strokeStyle = '#0e0e0e';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, isErr = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isErr ? '#f56a6a' : 'var(--accent)';
+  t.style.color = isErr ? '#fff' : '#000';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── START ───────────────────────────────────────────────────────────────────
+init();
+window.addEventListener('resize', () => {
+  if (state.startDate && state.initialWeight) renderChart();
+});
+</script>
+</body>
+</html>
